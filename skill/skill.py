@@ -80,6 +80,38 @@ def get_metrics():
         return f"Произошла ошибка при получении метрик: {str(e)}"
 
 
+def rerun_last_failed():
+    """Rerun the last failed run from Weights & Biases."""
+    try:
+        api = wandb.Api()
+        entity = "kwargs"  # Replace with your own
+        project = "model-inference-simulation"  # Replace with your own
+
+        runs = api.runs(f"{entity}/{project}")
+        if not runs:
+            return "Не удалось найти запуски в Weights & Biases."
+
+        last_failed_run = None
+        for run in runs:
+            if run.state == "failed":
+                last_failed_run = run
+                break
+
+        if not last_failed_run:
+            return "Не удалось найти последний неудачный запуск."
+
+        config = last_failed_run.config
+        if not config:
+            return "Не удалось получить конфигурацию последнего неудачного запуска."
+
+        new_run = wandb.init(project=project, entity=entity, config=config, reinit=True)
+
+        return f"Запущен новый запуск с ID: {new_run.id}"
+
+    except Exception as e:
+        return f"Произошла ошибка при перезапуске: {str(e)}"
+
+
 def handler(event, context):
     """
     Entry-point for Serverless Function.
@@ -87,14 +119,14 @@ def handler(event, context):
     :param context: information about current execution context.
     :return: response to be serialized as JSON.
     """
-    text = "Привет! Я могу показать метрики из последнего запуска Weights & Biases. Просто скажите 'метрики'."
+    text = "Привет! Это Элис Ютилс"
 
-    if (
-        "request" in event
-        and "original_utterance" in event["request"]
-        and event["request"]["original_utterance"].lower().strip() == "метрики"
-    ):
-        text = get_metrics()
+    if "request" in event and "original_utterance" in event["request"]:
+        utterance = event["request"]["original_utterance"].lower().strip()
+        if utterance == "метрики":
+            text = get_metrics()
+        elif utterance == "перезапустить":
+            text = rerun_last_failed()
 
     return {
         "version": event["version"],
